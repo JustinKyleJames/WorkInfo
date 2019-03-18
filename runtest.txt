@@ -1,0 +1,1 @@
+python scripts/run_tests.py --run_s=test_irsync.Test_iRsync.test_irsync_r_symlink

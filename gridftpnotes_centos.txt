@@ -1,0 +1,97 @@
+SERVER
+------
+
+sudo yum install -y globus-gridftp-server-progs
+sudo yum install -y globus-simple-ca
+sudo yum install -y globus-gass-copy-progs
+sudo yum install -y globus-common-devel
+sudo yum install -y globus-gridftp-server-devel
+sudo yum install -y globus-gridmap-callout-error-devel
+sudo yum install -y libcurl-devel
+sudo yum install -y git
+
+sudo yum install -y globus-gsi-cert-utils-progs
+sudo yum install -y globus-proxy-utils
+
+git clone https://github.com/JustinKyleJames/B2STAGE-GridFTP
+sudo mkdir /iRODS_DSI
+sudo chmod 777 /iRODS_DSI
+
+sudo yum install irods-devel
+
+export PATH=/opt/irods-externals/cmake3.5.2-0/bin:$PATH
+export GLOBUS_LOCATION="/usr"
+export IRODS_PATH="/usr"
+export DEST_LIB_DIR="/iRODS_DSI"
+export DEST_BIN_DIR="/iRODS_DSI"
+export DEST_ETC_DIR="/iRODS_DSI"
+export IRODS_EXTERNALS_PATH=/opt/irods-externals
+export IRODS_42_COMPAT=true
+export C_INCLUDE_PATH=/usr/include/globus
+cd B2STAGE-GridFTP
+cmake .
+make install
+
+hostname=$(hostname)
+
+# create and install certificate authority
+sudo grid-ca-create -noint
+HEX_ID=$(ls /etc/grid-security/certificates/*.0 | cut -d/ -f5 | cut -d. -f1)
+
+# make server cert
+sudo grid-cert-request -ca ${HEX_ID} -nopw -cn $hostname -dir /etc/grid-security -prefix host
+
+# sign server cert
+echo globus  | sudo grid-ca-sign -in /etc/grid-security/hostcert_request.pem -out /etc/grid-security/hostcert.pem
+
+
+# update root irods
+sudo su - 
+iinit
+
+# update /etc/gridftp.conf
+echo '$LD_LIBRARY_PATH "$LD_LIBRARY_PATH:/iRODS_DSI"
+$irodsConnectAsAdmin "rods"
+load_dsi_module iRODS
+auth_level 4
+port 2811' | sudo tee -a /etc/gridftp.conf
+
+# update server service startup script
+sudo sed -i '1s|^#!/bin/bash|#!/bin/bash\nHOME=/root;echo $HOME|' /etc/init.d/globus-gridftp-server
+
+# create and sign client cert
+grid-cert-request -ca e18cfb84 -nopw -cn client.example.org -prefix user -commonname user1
+
+sudo grid-ca-sign -in ~/.globus/usercert_request.pem -out ~/.globus/usercert.pem
+
+# map the client's user to an irods user
+
+subject=`openssl x509 -noout -in ~/.globus/usercert.pem -subject | cut -d= -f2- | sed -e 's| *\(.*\)|\1|g'`
+echo "\"$subject\" user1" | sudo tee -a /etc/grid-security/grid-mapfile
+
+# make a user1 user
+iadmin mkuser user1 rodsuser
+
+
+
+
+CLIENT
+------
+
+sudo yum install -y globus-gass-copy-progs
+sudo yum install -y globus-gsi-cert-utils-progs
+sudo yum install -y globus-proxy-utils
+sudo yum install -y globus-simple-ca
+
+# copy ca rpm from server
+
+# install ca rpm
+sudo rpm -iv globus-simple-ca-e18cfb84-1.0-1.el6.noarch.rpm
+
+# get client cert from server and install in ~/.globus
+mkdir ~/.globus
+cd ~/.globus
+sftp server.example.org:/home/jjames/.globus/usercert.pem
+sftp server.example.org:/home/jjames/.globus/userkey.pem
+
+

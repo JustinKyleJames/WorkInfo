@@ -1,0 +1,84 @@
+# On MDS/MGS and OSS
+
+# disable firewalld
+/bin/systemctl stop firewalld.service
+/bin/systemctl disable firewalld.service
+
+
+yum update
+
+# follow instructions on http://wiki.lustre.org/Installing_the_Lustre_Software
+# ignore part about web server.  instead copy /tmp/lustre-repo.conf to /etc/yum.repos.d/lustre.repo
+
+depmod
+modprobe -v lustre
+
+
+
+# On MGS/MDS
+genhostid
+zpool create mgs01-pool mirror sdb sdc
+mkfs.lustre --mgs --backfstype=zfs --servicenode=192.1.1.1@tcp1 mgs01-pool/mgs01
+echo "mds1 - mgs zfs:mgs01-pool/mgs01" > /etc/ldev.conf
+zpool create mdt01-pool mirror sdd sde
+mkfs.lustre --mdt --backfstype=zfs --fsname=lustre01 --index=0 --mgsnode=192.1.1.1@tcp1 --servicenode=192.1.1.1@tcp1 mdt01-pool/mdt01
+echo "mds1 - mdt01 zfs:mdt01-pool/mdt01" >> /etc/ldev.conf
+echo 'options lnet networks="tcp1(enp0s8)"' > /etc/modprobe.d/lustre.conf
+chkconfig lustre on
+
+
+# On OSS
+genhostid
+zpool create ost01-pool raidz2 sdb sdc sdd sde
+mkfs.lustre --ost --backfstype=zfs --fsname=lustre01 --index=1 --mgsnode=192.1.1.1@tcp1 --servicenode=192.1.1.2@tcp1 ost01-pool/ost01
+echo "oss1 - oss01 zfs:ost01-pool/ost01" > /etc/ldev.conf
+echo 'options lnet networks="tcp1(enp0s8)"' > /etc/modprobe.d/lustre.conf
+
+
+# startup MDS
+modprobe lnet
+modprobe lustre
+service lustre start
+lctl dl
+
+
+# startup OSS
+modprobe lnet
+modprobe lustre
+lctl dl
+service lustre start
+lctl dl
+
+
+# On client
+yum install net-snmp-libs
+yum install perl
+yum install perl-Module-Pluggable
+yum install perl-Pod-Escapes
+yum install perl-Pod-Simple
+yum install libyaml
+yum install lm_sensors-libs
+yum install libtirpc
+wget https://downloads.hpdd.intel.com/public/lustre/latest-release/el7/client/RPMS/x86_64/kmod-lustre-client-2.10.3-1.el7.x86_64.rpm
+wget https://downloads.hpdd.intel.com/public/lustre/latest-release/el7/client/RPMS/x86_64/lustre-client-2.10.3-1.el7.x86_64.rpm
+yum --disablerepo=\* install -y *.rpm
+
+# mount on client
+mount -t lustre 
+
+# ------------- general stuff ----------------
+
+
+# to unload and load lnet module
+lctl network down
+modprobe -r lnet
+modprobe lnet
+lctl network up
+
+# show lnet status
+lnetctl net show [-v]
+
+# create YAML for lnet config
+
+# debug info
+dmesg output

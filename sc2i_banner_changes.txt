@@ -1,0 +1,39 @@
+irods-cloud-backend/home/home.js
+--------------------------------
+
+        $scope.edittest;
+
+        var visited = localStorage.getItem('visited');
+        if (visited != 'true') {
+            MessageService.broadcast('SC2i is a restricted system.  ' + 
+                        'Usage may be monitored, recorded, and subject ' +
+                        'to audit.  Unauthorized use of SC2i is prohibited ' +
+                        'and subject to criminal and civil penalties. Use ' +
+                        'of this system indicates you consent to these ' + 
+                        'conditions and agree to abide by applicable usage ' +
+                        'policies.',{color: 'warning', timeout:3000000});
+            localStorage.setItem('visited', 'true');
+        }
+
+
+
+irods-cloud-backend/components/global.js
+----------------------------------------
+        $rootScope.logout_func_shib = function (logout_url) {
+        localStorage.setItem('visited', 'false');
+
+
+
+
+irods-cloud-backend/css/allBower.js
+-----------------------------------
+
+.message-box .message {
+        color: black;
+        font-size: 16px;
+        font-weight: 500;
+        white-space: normal;
+}
+
+
+

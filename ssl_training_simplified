@@ -1,0 +1,322 @@
+Initial Conditions:
+
+We have one ICAT server and one resource server
+icat.renci.org
+resource1.renci.org
+
+We have two resources - one on each server:
+
+icatResc
+resource1Resc
+
+Since we do not have certs signed by a certificate authority, we will create a single self-signed wildcard certificate
+
+First, create a directory on icat.renci.org to hold the certificates:
+
+irods@icat:~$ mkdir /etc/irods/ssl
+irods@icat:~$ cd /etc/irods/ssl
+
+Now create a self signed cert:
+
+irods@icat:/etc/irods/ssl$ openssl genrsa -out irods.key 2048
+irods@icat:/etc/irods/ssl$ chmod 600 irods.key
+irods@icat:/etc/irods/ssl$ openssl req -new -x509 -key irods.key -out irods.crt -days 365
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:US
+State or Province Name (full name) [Some-State]:North Carolina
+Locality Name (eg, city) []:Chapel Hill
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:Renci
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []:*.renci.org
+Email Address []:
+
+
+Generate some Diffie-Hellman parameters for OpenSSL:
+
+irods@icat:/etc/irods/ssl$ openssl dhparam -2 -out dhparams.pem cp 
+
+- To test this out, we want to enforce SSL on all connections.  To do this on the server, update /etc/irods/core.re to require SSL:
+
+    acPreConnect(*OUT) { *OUT="CS_NEG_REQUIRE"; }
+
+
+- Now we need to update the clients.  We will start with the service account configuration which is in ~irods/.irods/irods_environment.json.  
+The following is a full listing of the irods_environment.json,
+
+
+{
+    "irods_host": "icat.renci.org",
+    "irods_port": 1247,
+    "irods_default_resource": "icatResc",
+    "irods_home": "/tempZone/home/rods",
+    "irods_cwd": "/tempZone/home/rods",
+    "irods_user_name": "rods",
+    "irods_zone_name": "tempZone",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+    "irods_encryption_key_size": 32,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC",
+    "irods_default_hash_scheme": "SHA256",
+    "irods_match_hash_policy": "compatible",
+    "irods_server_control_plane_port": 1248,
+    "irods_server_control_plane_key": "TEMPORARY__32byte_ctrl_plane_key",
+    "irods_server_control_plane_encryption_num_hash_rounds": 16,
+    "irods_server_control_plane_encryption_algorithm": "AES-256-CBC",
+    "irods_maximum_size_for_single_buffer_in_megabytes": 32,
+    "irods_default_number_of_transfer_threads": 4,
+    "irods_transfer_buffer_size_for_parallel_transfer_in_megabytes": 4,
+    "irods_ssl_certificate_chain_file": "/etc/irods/ssl/irods.crt",
+    "irods_ssl_certificate_key_file": "/etc/irods/ssl/irods.key",
+    "irods_ssl_dh_params_file": "/etc/irods/ssl/dhparams.pem",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt"
+}
+
+The following settings identify the certificate, the key, and the dhparams file.
+
+    "irods_ssl_certificate_chain_file": "/etc/irods/ssl/irods.crt",
+    "irods_ssl_certificate_key_file": "/etc/irods/ssl/irods.key",
+    "irods_ssl_dh_params_file": "/etc/irods/ssl/dhparams.pem",
+
+The following setting forces the irods user to use SSL when acting as a client.  This also forces the server to use SSL when connecting as a client to other servers.
+
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+
+
+Since we have a self signed certificate, we need to tell the client to trust the certificate authority that has signed this certificate.  In our case we are our own certificate authority so we simply add our certificate here:
+
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt"
+
+
+Now let's test out our configuration by doing an iinit for the irods user:
+
+irods@icat:~/.irods$ iinit
+Enter your current iRODS password:
+
+No error indicated that we connected to the server successfully.
+
+
+Now try to configure another unix user to connect to iRODS using SSL. For this user, set the irods_environment.json to the following:
+
+
+{
+    "irods_host": "icat.renci.org",
+    "irods_zone_name": "tempZone",
+    "irods_port": 1247,
+    "irods_user_name": "rods",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt",
+    "irods_encryption_key_size": 32,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC"
+}
+
+Now let's test out our configuration by doing an iinit for this user:
+
+jjames@icat:~/.irods$ iinit
+Enter your current iRODS password:
+
+Again, no error indicates that we connected to the server successfully.
+
+
+--- For resource1 ---
+
+We are using the same wildcard certficate and key
+
+Create /etc/irods/ssl on resource1.renci.org and copy irods.crt, irods.key, and dhparams.pem into this directory.
+
+Update core.re to require SSL:
+
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+
+Update the service client on resource1.renci.org.  Add the four last lines and set the policy to CS_NEG_REQUIRE.
+
+{
+    "irods_host": "resource1.renci.org",
+    "irods_port": 1247,
+    "irods_default_resource": "resource1Resc",
+    "irods_home": "/tempZone/home/rods",
+    "irods_cwd": "/tempZone/home/rods",
+    "irods_user_name": "rods",
+    "irods_zone_name": "tempZone",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+    "irods_encryption_key_size": 32,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC",
+    "irods_default_hash_scheme": "SHA256",
+    "irods_match_hash_policy": "compatible",
+    "irods_server_control_plane_port": 1248,
+    "irods_server_control_plane_key": "TEMPORARY__32byte_ctrl_plane_key",
+    "irods_server_control_plane_encryption_num_hash_rounds": 16,
+    "irods_server_control_plane_encryption_algorithm": "AES-256-CBC",
+    "irods_maximum_size_for_single_buffer_in_megabytes": 32,
+    "irods_default_number_of_transfer_threads": 4,
+    "irods_transfer_buffer_size_for_parallel_transfer_in_megabytes": 4,
+    "irods_ssl_certificate_chain_file": "/etc/irods/ssl/irods.crt",
+    "irods_ssl_certificate_key_file": "/etc/irods/ssl/irods.key",
+    "irods_ssl_dh_params_file": "/etc/irods/ssl/dhparams.pem",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt"
+}
+
+
+Test the connection:
+
+irods@resource1:~/.irods$ iinit
+Enter your current iRODS password:
+
+
+Now configure another unix user on resource1.renci.org to connect to iRODS using SSL. For this user, set the irods_environment.json to the following:
+
+
+{
+    "irods_host": "resource1.renci.org",
+    "irods_zone_name": "tempZone",
+    "irods_port": 1247,
+    "irods_user_name": "rods",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt",
+    "irods_encryption_key_size": 16,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC"
+}
+
+Test your connection.
+
+jjames@resource1:~/.irods$ iinit 
+Enter your current iRODS password:
+
+
+
+Now let's run some tests:
+
+On icat.renci.org, while connected to the ICAT server, let's put a large file onto resource1Resc:
+
+jjames@icat:~/.irods$ echo 'this is a test' > test.txt
+jjames@icat:~/.irods$ iput -R resource1Resc test.txt
+jjames@icat:~/.irods$ iget test.txt -
+this is a test
+
+
+
+On resource1.renci.org, let's put a large file onto icatResc:
+
+jjames@resource1:~/.irods$ echo 'This is another test' > test2.txt
+jjames@resource1:~/.irods$ iput -R icatResc test2.txt
+jjames@resource1:~/.irods$ iget test2.txt -
+This is another test
+
+
+
+===
+PAM
+===
+
+
+PAM uses SSL to send the password over the wire.  We already have SSL setup so we can skip to configuring PAM only.
+
+We will configure PAM to authenticate using the normal UNIX accounts.
+
+We'll start by creating a Linux user "irodsuser" and giving it a password of "test123":
+
+jjames@icat:~/.irods$ sudo adduser irodsuser
+
+Setup iRODS to use native UNIX authentication.  Create /etc/pam.d/irods and set the contents to:
+
+jjames@icat:~/.irods$ cat /etc/pam.d/irods
+auth        required      pam_env.so
+auth        sufficient    pam_unix.so
+auth        requisite     pam_succeed_if.so uid >= 500 quiet
+auth        required      pam_deny.so
+
+  See the following for more information on these settings:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Managing_Smart_Cards/PAM_Configuration_Files.html
+
+Now create the "irodsuser" user in iRODS but do not give it a password.
+
+jjames@icat:~/.irods$ iadmin mkuser irodsuser rodsuser
+
+Update the irods_environment.json setting the user to "irodsuser" and the irods_authentication_scheme to "PAM".
+
+Note:  You do not have to do this under the irodsuser Linux user.  We just created that user to demonstrate how 
+iRODS can be configured to use PAM with native Unix authentication.
+
+{
+    "irods_host": "icat.renci.org",
+    "irods_zone_name": "tempZone",
+    "irods_port": 1247,
+    "irods_user_name": "irodsuser",
+    "irods_authentication_scheme": "PAM",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REQUIRE",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt",
+    "irods_encryption_key_size": 16,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC"
+}
+
+Now do an iinit and enter "test123" as the password.
+
+jjames@icat:~/.irods$ iinit
+Enter your current PAM password:
+jjames@icat:~/.irods$ ils
+/tempZone/home/irodsuser:
+
+No errors indicate that we were successfully able to connect to iRODS.  As one last test, let's do another iinit but enter an invalid password:
+
+jjames@icat:~/.irods$ iinit
+Enter your current PAM password:
+[-]	libpam.cpp:250:pam_auth_client_request :  status [PAM_AUTH_PASSWORD_FAILED]  errno [] -- message [call to rcAuthRequest failed.]
+
+ failed with error -993000 PAM_AUTH_PASSWORD_FAILED 
+
+As one final demonstration, let's disable SSL but leave PAM configured.  Update the irods_environment.json to the following:
+
+{
+    "irods_host": "icat.renci.org",
+    "irods_zone_name": "tempZone",
+    "irods_port": 1247,
+    "irods_user_name": "irodsuser",
+    "irods_authentication_scheme": "PAM",
+    "irods_client_server_negotiation": "request_server_negotiation",
+    "irods_client_server_policy": "CS_NEG_REFUSE",
+    "irods_ssl_ca_certificate_file": "/etc/irods/ssl/irods.crt",
+    "irods_encryption_key_size": 16,
+    "irods_encryption_salt_size": 8,
+    "irods_encryption_num_hash_rounds": 16,
+    "irods_encryption_algorithm": "AES-256-CBC"
+}
+
+Also update core.re so that it doesn't enforce SSL:
+
+acPreConnect(*OUT) { *OUT="CS_NEG_DONT_CARE"; }
+
+Now let's see if PAM still works:
+
+jjames@icat:~/.irods$ iinit
+Enter your current PAM password:
+jjames@icat:~/.irods$ 
+
+PAM still worked with SSL disabled.  When using PAM, SSL is always used to send the password to the server.  The irods_client_server_policy does not need to be set to enable SSL in this case.
+
+
+
+
+
+
+
+
+
+

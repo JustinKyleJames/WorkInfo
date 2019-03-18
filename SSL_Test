@@ -1,0 +1,85 @@
+
+- Create root key - openssl genrsa -out rootCA.key 2048
+- Create a root self signed certificate - openssl req -x509 -new -nodes -key rootCA.key -days 1024 -out rootCA.pem
+
+--- For ICAT server ---
+
+- Install root certificate:
+  - cp rootCA.pem /etc/ssl/certs
+  - c_rehash /etc/ssl/certs
+- Create ICAT key
+  - openssl genrsa -out ICAT.key 2048
+- Create ICAT cert signing request (.csr)
+  - openssl req -new -key ICAT.key -out ICAT.csr 
+- Sign the cert (.crt)
+  - openssl x509 -req -in ICAT.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out ICAT.crt -days 500
+- Create chain file
+  - cat ICAT.crt rootCA.pem > ICAT_chain.pem
+
+- Set environment variables in ~irods/iRODS/irodsctl
+
+	export irodsSSLDHParamsFile=/var/lib/irods/ssl/dhparams.pem
+	export irodsSSLCertificateChainFile=/var/lib/irods/ssl/ICAT_chain.pem
+	export irodsSSLCertificateKeyFile=/var/lib/irods/ssl/ICAT.key
+
+- Restart server (~/iRODS/irodsctl restart) 
+
+- Set environment variables for client:
+
+	export irodsSSLCACertificateFile=/var/lib/irods/ssl/rootCA.pem    # can use a dummy root cert here
+	export irodsSSLVerifyServer=hostname
+	export irodsSSLCACertificatePath=/etc/ssl/certs
+
+- Test running iinit and ils
+
+--- For ResourceServer1 ---
+
+- Install root certificate:
+  - cp rootCA.pem /etc/ssl/certs
+  - c_rehash /etc/ssl/certs
+- Create ResourceServer1 key
+  - openssl genrsa -out ResourceServer1.key 2048
+- Create ResourceServer1 cert signing request (.csr)
+  - openssl req -new -key ResourceServer1.key -out ResourceServer1.csr 
+- Sign the cert (.crt)
+  - openssl x509 -req -in ResourceServer1.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out ResourceServer1.crt -days 500
+- Create chain file
+  - cat ResourceServer1.crt rootCA.pem > ResourceServer1_chain.pem
+
+- Set environment variables in ~irods/iRODS/irodsctl
+
+	export irodsSSLDHParamsFile=/var/lib/irods/ssl/dhparams.pem
+	export irodsSSLCertificateChainFile=/var/lib/irods/ssl/ResourceServer1_chain.pem
+	export irodsSSLCertificateKeyFile=/var/lib/irods/ssl/ResourceServer1.key
+
+- Restart server (~/iRODS/irodsctl restart) 
+
+- Set environment variables for client:
+
+	export irodsSSLCACertificateFile=/var/lib/irods/ssl/rootCA.pem    # can use a dummy root cert here
+	export irodsSSLVerifyServer=hostname
+	export irodsSSLCACertificatePath=/etc/ssl/certs
+
+- Test running iinit and ils
+
+--- For CLI client ---
+
+- Install root certificate:
+  - cp rootCA.pem /etc/ssl/certs
+  - c_rehash /etc/ssl/certs
+
+- Set environment variables for client:
+
+	export irodsSSLCACertificateFile=/var/lib/irods/ssl/rootCA.pem    # can use a dummy root cert here
+	export irodsSSLVerifyServer=hostname
+	export irodsSSLCACertificatePath=/etc/ssl/certs
+
+- Test connecting to both ICAT and ResourceServer1
+	irodsHost ICAT
+	or
+	irodsHost ResourceServer1
+
+- Test running iinit and ils
+
+
+

@@ -1,0 +1,63 @@
+Overview
+--------
+
+Set up iCAT with FQDN as icat.example.org and IP 192.1.1.1.
+Set up resource server with FQDN as resource.example.org and IP 192.1.1.2.
+
+
+ICAT Setup
+----------
+
+1.  Create a centos7 instance with adapter 1 enabled for bridged network and adapter 2 enabled fwith internal network.
+
+2.  Update /etc/hostname with icat.example.org
+
+3.  Find adapter 2 interface name with ifconfig.  Let's say it is enp0s8
+
+4.  Create /etc/sysconfig/network-scripts/ifcfg-enp0s8 with:
+
+DEVICE=enp0s8
+TYPE=Ethernet
+ONBOOT=yes
+NM_CONTROLLED=no
+BOOTPROTOCOL=none
+IPADDR=192.1.1.1
+NETMASK=255.255.255.0
+NETWORK=192.1.1.0
+BROADCAST=192.1.1.255
+
+5.  Restart networking:  sudo systemctl restart network.service
+
+6.  Update /etc/hosts:
+
+127.0.0.1   icat.example.org localhost localhost.localdomain localhost4 localhost4.localdomain4
+192.1.1.2   resource.example2.org
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain 
+
+7.  Disable firewall:  systemctl disable firewalld
+
+8.  Stop firewall:  systemctl stop firewalld
+
+
+Resource Setup
+--------------
+
+1.  Stop iCAT VM and clone it.
+
+2.  Start the clone.
+
+3.  Update /etc/hostname with resource.example.org
+
+4.  Update /etc/sysconfig/network-scripts/ifcfg-enp0s8 and change IPADDR=192.1.1.2
+
+5.  Restart networking:  sudo systemctl restart network.service
+
+6.  Update /etc/hosts:
+
+127.0.0.1   resource.example2.org localhost localhost.localdomain localhost4 localhost4.localdomain4
+192.1.1.1   icat.example.org
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+
+Now install iRODS as normal on both iCAT and resource servers.  Use provider for iCAT and consumer for resource and when prompted for provider on resource use icat.example.org.
+

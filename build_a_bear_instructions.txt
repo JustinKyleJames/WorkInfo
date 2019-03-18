@@ -1,0 +1,20 @@
+=========================
+Build-a-bear Instructions
+=========================
+
+Go to repo where changes were made (irods, irods_client_icommands, etc.)
+~/bin/syncbuildabear 
+
+Go to Jenkins:  http://172.25.14.63:8080/
+
+- Click on "Personal"
+- Click on irods-build-and-test-workflow
+- Click on an existing test run
+   - Click "Parameters"
+   - Change user name to jjames in PARAMETER_GIT_REPOSITORY
+   - Type irods hash in PARAMETER_GIT_COMMITISH
+   - Change user name to jjames in PARAMETER_GIT_REPOSITORY_ICOMMANDS
+   - Type irods_client_icommands hash in PARAMETER_GIT_COMMITISH_ICOMMANDS
+
+
+

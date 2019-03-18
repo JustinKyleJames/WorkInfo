@@ -1,0 +1,74 @@
+Install docker
+--------------
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-get install -y docker-ce
+
+Allow ubuntu user access
+------------------------
+sudo usermod -aG docker ${USER}
+
+
+
+
+==================
+In Docker Instance
+==================
+
+apt-get update
+apt-get install -y gnupg
+apt-get install -y openjdk-8-jre-headless 
+apt-get install -y wget
+apt-get install -y curl
+
+# active mq
+wget http://archive.apache.org/dist/activemq/5.15.3/apache-activemq-5.15.3-bin.tar.gz
+gunzip apache-activemq-5.15.3-bin.tar.gz
+tar xvf apache-activemq-5.15.3-bin.tar
+apache-activemq-5.15.3/bin/activemq start
+
+# elastic
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add - -
+echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" | tee -a /etc/apt/sources.list.d/elastic-5.x.list
+apt-get update
+apt-get install -y elasticsearch
+service elasticsearch restart
+
+curl -XPUT 'http://localhost:9200/audit_log'
+curl -XPUT localhost:9200/audit_log/_mapping/hostname_mapping -d '
+{
+  "properties": {
+    "hostname": {
+       "type": "string",
+      "index": "not_analyzed"
+    }
+  }
+}'
+
+# logstash
+wget -qO - https://packages.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+echo "deb http://packages.elastic.co/logstash/2.1/debian stable main" | tee -a /etc/apt/sources.list.d/logstash-2.x.list
+apt-get update
+export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
+apt-get install -y logstash
+
+cd /opt/logstash/bin/
+
+
+
+===========================
+Build and push docker image
+===========================
+
+docker build -t irods_audit_elk_stack irods_audit_elk_stack
+docker tag irods_audit_elk_stack justinkylejames/irods_audit_elk_stack
+docker push justinkylejames/irods_audit_elk_stack
+
+docker pull justinkylejames/irods_audit_elk_stack
+
+
+
+
+

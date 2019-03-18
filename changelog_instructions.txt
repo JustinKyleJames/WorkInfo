@@ -1,0 +1,32 @@
+#clear changelog for cl1 up to 3
+lfs changelog_clear lustre01-MDT0000 cl1 3
+
+# read changelog - from client
+lfs changelog lustre01-MDT0000 cl1
+
+# get listeners - from MDS
+lctl get_param mdd.lustre01-MDT0000.changelog_users
+or
+cat /proc/fs/lustre/mdd/lustre01-MDT0000/changelog_users
+
+# register new listeners (on MDS)
+lctl --device lustre01-MDT0000 changelog_register
+lctl --device lustre01-MDT0001 changelog_register
+
+
+# deregister changelog user
+lctl --device lustre01-MDT0000 changelog_deregister cl5
+
+
+# how changelog works
+
+If there is only one listener, once you confirm records they disappear
+If there are more than one listener, unless the listeners are deleted or they
+all clear the records, on restart all will get all records.
+
+# update mask
+lctl set_param mdd.lustre01-MDT0000.changelog_mask="MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN LYOUT TRUNC SATTR XATTR HSM MTIME CTIME CLOSE"
+lctl set_param mdd.lustre01-MDT0001.changelog_mask="MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN LYOUT TRUNC SATTR XATTR HSM MTIME CTIME CLOSE"
+
+# get mask
+

@@ -1,0 +1,183 @@
+
+
+Get prebuilt irods externals as described in https://core-dev.irods.org/
+export PATH=/opt/irods-externals/cmake3.5.2-0/bin:$PATH 
+cd ~
+git clone https://github.com/irods/contrib
+mkdir ipingbuild
+cd ipingbuild
+cmake ~/contrib/iping
+make package
+sudo dpkg -i irods-iping_4.2.0~trusty_amd64.deb 
+
+Test pinging the Resource Servers (catalog consumers):
+
+$ iping -h Resource1.example.org
+OK : connection to iRODS server successful
+$ iping -h Resource2.example.org
+OK : connection to iRODS server successful
+
+Install Nagios:
+
+sudo apt install nagios3 nagios-nrpe-plugin
+
+Go to the local nagios web tool to make sure everything is up.  Use "nagiosadmin" and the password you specified on installation.
+
+http://localhost/nagios3/
+
+Make a config directory for Nagios:
+cd /etc/nagios3
+sudo mkdir irods
+Edit nagios.conf and add the following to the end cfg_dir=/etc/nagios3/irods
+
+Make /etc/nagios3/irods/irods.cfg:
+
+define host {
+	name		irods-server-template
+	use		generic-host	
+    check_interval 1
+	register	0
+}
+
+define host {
+	use		irods-server-template
+	host_name	Resource1
+	alias	  	Resource1	
+	address		Resource1.example.org	
+}
+
+define host {
+        use             irods-server-template
+        host_name       Resource2
+        alias           Resource2
+        address         Resource2.example.org
+}
+
+define hostgroup{
+	hostgroup_name	 	irods-servers	
+	alias			iRODS Servers
+	members			Resource1,Resource2 	
+}
+
+define command{
+	command_name 	iping-irods-server
+	command_line	/etc/nagios3/capture_plugin.pl /usr/lib/nagios/plugins/iping -h $HOSTADDRESS$ -p $ARG1$ 
+}
+
+define command {
+	command_name	update-irods-resource-state	
+	command_line	/usr/lib/nagios/plugins/update_irods_resc_state $HOSTADDRESS$ $SERVICESTATE$ $SERVICESTATETYPE$ $SERVICEATTEMPT$
+} 
+
+define service {
+    use			generic-service
+	hostgroups	 	irods-servers	
+    service_description   	IPING 
+    check_command          	iping-irods-server!1247
+    check_interval 		1
+	event_handler		update-irods-resource-state
+}
+
+
+Create /usr/lib/nagios/plugins/iping
+
+#!/bin/bash
+
+export HOME=/var/lib/nagios
+
+return=0
+/usr/bin/iping "$@" || return=$?
+
+if [ $return -gt 3 ]; then
+   exit 2
+else
+   exit $return
+fi
+
+chmod +x /usr/lib/nagios/plugins/iping
+
+
+Create /usr/lib/nagios/plugins/update_irods_resc_state
+
+#!/bin/bash
+
+export HOME=/var/lib/nagios
+
+echo update_irods_resc_state "$@" >> /tmp/update_resc.log
+
+HOST=$1
+SERVICE_STATE=$2
+SERVICE_STATE_TYPE=$3
+SERVICE_ATTEMPT=$4
+
+RESOURCES=$(iquest "%s" "select RESC_NAME where RESC_LOC = '$HOST'")
+
+echo RESOURCES = $RESOURCES >> /tmp/update_resc.log
+echo SERVICES_STATE = $SERVICE_STATE >> /tmp/update_resc.log
+
+
+case "$SERVICE_STATE" in
+OK)
+    for RESOURCE in $RESOURCES; do
+        iadmin modresc $RESOURCE status up
+    done
+    ;;
+WARNING)
+    ;;
+UNKNOWN)
+    ;;
+CRITICAL)
+    for RESOURCE in $RESOURCES; do
+        iadmin modresc $RESOURCE status down
+    done
+    ;;
+
+esac
+exit 0
+
+chmod +x /usr/lib/nagios/plugins/update_irods_resc_state
+
+change /etc/passwd to allow nagios login:
+
+old: 
+nagios:x:119:128::/var/lib/nagios:/bin/false
+
+new:
+
+
+
+Perform iinit as the nagios user to make sure this user can connect to iRODS.
+
+root@ICAT:/etc/nagios3# iinit
+One or more fields in your iRODS environment file (irods_environment.json) are
+missing; please enter them.
+Enter the host name (DNS) of the server to connect to: localhost
+Enter the port number: 1247
+Enter your irods user name: rods
+Enter your irods zone: tempZone
+Those values will be added to your environment file (for use by
+other iCommands) if the login succeeds.
+
+
+
+Restart nagios:  
+
+$ sudo service nagios3 restart
+
+
+Bring down a resource.  After a period of time, check the resource status.
+
+$ iadmin lr Resource1Resource | grep resc_status
+resc_status: down
+
+
+Bring up a resource.  Check the resource status:
+
+
+
+
+
+
+
+
+

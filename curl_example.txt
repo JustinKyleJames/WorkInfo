@@ -1,0 +1,19 @@
+
+
+XML
+---
+
+curl -H "Content-Type:application/xml" -H"Accept:application/json" -X POST -d '<ns2:query xmlns:ns2="http://irods.org/irods-rest"><select>RESC_NAME</select><select>COLL_NAME</select><select>DATA_NAME</select><condition><column>COLL_NAME</column><operator>LIKE</operator><value>/tempZone/home/%</value></condition><condition><column>META_DATA_ATTR_NAME</column><operator>LIKE</operator><value>GUPI</value></condition><condition><column>META_DATA_ATTR_VALUE</column><operator>LIKE</operator><value>0417</value></condition><order_by><column>DATA_NAME</column><order_condition>ASC</order_condition></order_by></ns2:query>' http://rods:<pw>@localhost:8080/irods-rest/rest/genQuery
+
+
+JSON
+----
+
+curl -H "Content-Type:application/json"  -H"Accept:application/json" -X POST -d '{"select":[{"value":"RESC_NAME","aggregate_type":null},{"value":"COLL_NAME","aggregate_type":null},{"value":"DATA_NAME","aggregate_type":null},{"value":"DATA_SIZE","aggregate_type":null}],"condition":[{"column":"COLL_NAME","operator":"EQUAL","value":"/tempZone/home/rods"},{"column":"DATA_NAME","operator":"LIKE","value":"%.dat"}],"order_by":[{"column":"DATA_SIZE","order_condition":"DESC"}]}' http://rods:<pw>@localhost:8080/irods-rest/rest/genQuery
+
+
+
+curl -H "Content-Type:application/xml" -d 'xxx' -X GET http://localhost:8080/resteasy/restful-services/sampleservice/selectJson
+
+curl http://localhost:8080/resteasy/restful-services/sampleservice/hello
+

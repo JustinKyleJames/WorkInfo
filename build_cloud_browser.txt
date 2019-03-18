@@ -1,0 +1,8 @@
+Build Cloud Browser
+===================
+
+
+cd irods-cloud-browser/irods-cloud-frontend
+gulp backend-clean
+gulp backend-build
+gulp gen-war

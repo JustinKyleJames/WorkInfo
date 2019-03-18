@@ -1,0 +1,24 @@
+Grid Security Certificate Notes:
+
+Certicate authority certificates include the following:
+
+ - ffffffff.0 - cert
+ - ffffffff.signing_policy
+
+These need to installed on the server at /etc/grid-security/certificates.
+These need to be installed on the client at ~/.globus.
+
+
+Where do user certs go?
+
+Client:  ~/.globus/usercert.pem
+         ~/.globus/userkey.pem
+
+
+# make client cert
+openssl genrsa -out ~/.globus/userkey.pem 1024
+openssl req -new -key ~/.globus/userkey.pem -out ~/.globus/usercert_request.pem -subj "/C=US/ST=North Carolina/L=Chapel Hill/O=Grid/CN=user1"
+
+# sign client cert
+echo globus  | grid-ca-sign -in ~/.globus/usercert_request.pem -out ~/.globus/usercert.pem
+

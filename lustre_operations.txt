@@ -1,0 +1,72 @@
+EventTypeEnum
+-------------
+
+CREATE
+
+  - looks up collection ID from parent path
+  - insert data object with collection id, etc.
+  - add fidstr
+
+MKDIR
+  - chlRegColl
+  - add fidstr
+
+OTHER
+  - search for fidstr 
+  - update file size
+
+RENAME a FILE
+  - look up object with fidstr
+  - look up parent collection id with parent_fidstr
+  - update parent collection, object name 
+
+RENAME a DIR 
+  - look up parent collection path from parent_fidstr
+  - look up collection path from fidstr
+  - update parent collection and collection path
+
+UNLINK
+  - look up data object with fidstr
+  - delete data object
+
+RMDIR
+  - look up collection with fidstr
+  - delete collection 
+
+
+
+Things need to wait on
+----------------------
+
+On create:  
+  - If parent_fidstr or fidstr is in queue
+
+On mkdir:
+  - If parent_fidstr or fidstr is in queue
+
+On other:
+  - If fidstr is in queue
+
+On rename:
+  - If parent_fidstr or fidstr is in queue
+
+On unlink:
+  - If fidstr is in queue
+
+On rmdir
+  - If fidstr is in queue
+
+Things to add to queue
+----------------------
+
+All: fidstr
+
+
+Todo:
+
+  - Add a field on each entry to flag entry as not ready?
+
+or 
+
+  - Have sorted list of in progress fidstr
+  - On each cycle, if fidstr is in list ignore entry

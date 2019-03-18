@@ -1,0 +1,112 @@
+# Get minio 
+sudo wget https://dl.minio.io/server/minio/release/linux-amd64/minio
+sudo chmod +x minio
+sudo cp minio /usr/bin
+
+# make a data directory
+mkdir /data
+sudo chown jjames /data
+
+# Start minio server, see key and private key in output
+minio server /data&
+
+# configure aws client keys
+aws configure 
+# enter <key>
+# enter <secret key> 
+# enter 'us-east-1'
+
+# create a bucket 
+aws --endpoint-url http://localhost:9000 s3 mb s3://s3resc1
+
+# list buckets
+aws --endpoint-url http://localhost:9000 s3 ls
+
+# Do not install with apt-get.  Need to build it.
+automake autotools-dev fuse g++ git libcurl4-openssl-dev libfuse-dev libssl-dev libxml2-dev make pkg-config
+git clone https://github.com/s3fs-fuse/s3fs-fuse.git
+cd s3fs-fuse
+./autogen.sh
+./configure
+make
+sudo make install
+
+# Set up your key file (as jjames)
+echo <key>:<secret> > ~/.passwd-s3fs
+
+# mount a directory and make irods (999) the user 
+mkdir /var/lib/irods/s3resc1 
+   # s3resc1 is bucket name
+s3fs s3resc1 /var/lib/irods/s3resc1 -o passwd_file=.passwd-s3fs -o url=http://localhost:9000 -o use_path_request_style -o uid=999 -o dbglevel=err
+
+# make a resource using this dir
+iadmin mkresc s3resc1 unixfilesystem `hostname`:/var/lib/irods/s3resc1
+
+# minio has a URL
+http://<ip>:9000/minio
+
+# unmount
+fusermount -u /var/lib/irods/s3fsmount
+
+
+####################################################
+##### normal s3 cacheless resource with minio ######
+####################################################
+
+# write keypair to file (example)
+printf "<key>" > /var/lib/irods/s3.keypair2
+
+# make resc 
+iadmin mkresc s3resc s3 `hostname`:/irods-bucket/irods/Vault "S3_DEFAULT_HOSTNAME=`hostname`:9000;S3_AUTH_FILE=/var/lib/irods/s3.keypair;S3_RETRY_COUNT=2;S3_WAIT_TIME_SEC=3;S3_PROTO=HTTP;ARCHIVE_NAMING_POLICY=consistent;HOST_MODE=cacheless_attached"
+
+
+###########################################
+#### S3 cacheless resource with amazon ####
+###########################################
+
+iadmin mkresc amazons3resc s3 `hostname`:/irods-ci-ubuntu14.04-2019-01-29.16-29-43-311500-ysqnhswriu "S3_DEFAULT_HOSTNAME=s3.amazonaws.com;S3_AUTH_FILE=/projects/irods/vsphere-testing/externals/amazon_web_services-CI.keypair;S3_REGIONNAME=us-east-1;S3_RETRY_COUNT=1;S3_WAIT_TIME_SEC=3;S3_PROTO=HTTP;ARCHIVE_NAMING_POLICY=consistent;HOST_MODE=cacheless_attached"
+
+
+################################
+#### Mount Amazon with S3FS ####
+################################
+
+cat <key> > aws.keypair
+
+python
+------
+
+try:
+   import boto3
+except ImportError:
+   print('This test requires boto3: perhaps try pip install boto3')
+   exit()
+
+
+s3 = boto3.resource('s3', 'us-east-1')
+bucketname = s3.create_bucket(Bucket='justinkylejames-irods1')
+print 'bucket name : %s' % bucketname
+
+
+s3fs justinkylejames-irods1 /var/lib/irods/amazons3 -o passwd_file=aws.keypair 
+
+
+######################
+#### run S3 tests ####
+######################
+
+python python scripts/run_tests.py --run_s=test_irods_resource_plugin_s3.Test_Resource_S3_NoCache
+
+
+
+###############
+#### Misc  ####
+###############
+
+# list buckets examples
+aws s3 ls
+aws --endpoint-url https://s3.amazonaws.com s3 ls
+aws s3 ls s3://justinkylejames-irods1
+
+aws s3 cp 6Gfile s3://justinkylejames-irods1/6Gfile 
+aws s3 cp s3://justinkylejames-irods1/6Gfile 6Gfile2

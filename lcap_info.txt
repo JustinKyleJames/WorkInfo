@@ -1,0 +1,23 @@
+The LCAP_CL_DIRECT flag instructs LCAP to use direct mode with llapi functions.
+
+    uses cl_ops_null: 
+        struct lcap_cl_operations cl_ops_null = {
+            .cco_start  = lu_changelog_start,
+            .cco_fini   = lu_changelog_fini,
+            .cco_recv   = lu_changelog_recv,
+            .cco_free   = lu_changelog_free,
+            .cco_clear  = lu_changelog_clear
+        };
+
+   lu_changelog_start() calls llapi_changelog_start(), etc.
+
+If it is not set, it uses ZMQ mode.
+
+    uses cl_ops_proxy: 
+        struct lcap_cl_operations cl_ops_proxy = {
+            .cco_start  = px_changelog_start,
+            .cco_fini   = px_changelog_fini,
+            .cco_recv   = px_changelog_recv,
+            .cco_free   = px_changelog_free,
+            .cco_clear  = px_changelog_clear
+        };

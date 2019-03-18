@@ -1,0 +1,4 @@
+cd /usr/sbin
+rr record -w ./irodsServer
+rr ps
+rr replay -f <pid> 

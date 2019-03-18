@@ -1,0 +1,113 @@
+##### NOTES #####
+# In /etc/init.d/globus-gridftp-server
+#  sysconfdir=/etc
+#  conf=${sysconfidr}/gridftp.conf
+#  sbindir=/usr/sbin
+#  gridftpd=${sbindir}/globus-gridftp-server
+#
+# If running as a service, add $HOME /root at the end of /etc/gridftp.conf
+
+set -x
+
+sudo apt-get install -y globus-gridftp-server-progs globus-simple-ca globus-gass-copy-progs
+sudo apt-get install -y libglobus-common-dev libglobus-gridftp-server-dev libglobus-gridmap-callout-error-dev
+sudo apt-get install -y libcurl4-openssl-dev
+sudo apt-get install -y git
+sudo apt-get install -y g++ 
+sudo apt-get install -y dpkg-dev 
+sudo apt-get install -y cdbs 
+sudo apt-get install -y globus-gsi-cert-utils-prog
+sudo apt-get install -y globus-proxy-utils
+
+git clone https://github.com/JustinKyleJames/B2STAGE-GridFTP
+sudo mkdir /iRODS_DSI
+sudo chmod 777 /iRODS_DSI
+
+export PATH=/opt/irods-externals/cmake3.5.2-0/bin:$PATH
+export GLOBUS_LOCATION="/usr"
+export IRODS_PATH="/usr"
+export DEST_LIB_DIR="/iRODS_DSI"
+export DEST_BIN_DIR="/iRODS_DSI"
+export DEST_ETC_DIR="/iRODS_DSI"
+export IRODS_EXTERNALS_PATH=/opt/irods-externals
+export IRODS_42_COMPAT=true
+export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu/globus
+cd B2STAGE-GridFTP
+cmake .
+make install
+
+sudo grid-ca-create -noint  # puts files in /etc/grid-security/certificates
+
+HEX_ID=$(ls /etc/grid-security/certificates/*.0 | cut -d/ -f5 | cut -d. -f1)
+
+
+#Edit /etc/grid-security/certificates/globus-host-ssl.conf.ffffffff, set policy=policy_anything
+#Edit /etc/grid-security/certificates/ffffffff.signing_policy cond_subjects to ‘”*”‘
+
+sudo sed -i 's|= policy_match|= policy_anything|g' /etc/grid-security/certificates/globus-host-ssl.conf.${HEX_ID}
+sudo sed -i 's|cond_subjects     globus       .*|cond_subjects     globus       '"'"'"*"'"'"'|g' /etc/grid-security/certificates/${HEX_ID}.signing_policy
+
+# as root?
+grid-cert-request -ca ${HEX_ID} -nopw -cn icat.example.org # creates ~/.globus/usercert.pem usercert_request.pem userkey.pem
+
+### ????
+sudo cp ~/.globus/userkey.pem /etc/grid-security/hostkey.pem
+#sudo chown jjames:jjames /etc/grid-security/hostkey.pem
+#sudo cp ~/.globus/usercert.pem /etc/grid-security/hostcert.pem
+#sudo chown jjames:jjames /etc/grid-security/hostcert.pem
+### ???
+
+cp /etc/grid-security/certificates/${HEX_ID}.0 ~/.globus/${HEX_ID}.0
+cp /etc/grid-security/certificates/${HEX_ID}.signing_policy ~/.globus/${HEX_ID}.signing_policy
+
+echo globus  | sudo grid-ca-sign -in ~/.globus/usercert_request.pem -out hostcert.pem  # sign the cert 
+sudo cp hostcert.pem /etc/grid-security/hostcert.pem
+cp hostcert.pem ~/.globus/usercert.pem
+#sudo chown jjames:jjames /etc/grid-security/hostcert.pem
+
+
+subject=`openssl x509 -noout -in /etc/grid-security/hostcert.pem -subject | cut -d= -f2- | sed -e 's| *\(.*\)|\1|g'`
+echo "\"$subject\" rods" | sudo tee -a /etc/grid-security/grid-mapfile
+
+echo '$LD_LIBRARY_PATH "$LD_LIBRARY_PATH:/iRODS_DSI"
+$irodsConnectAsAdmin "rods"
+load_dsi_module iRODS 
+auth_level 4' | sudo tee -a /etc/gridftp.conf
+
+#sudo LD_LIBRARY_PATH=/opt/irods-externals/clang3.8-0/lib:/iRODS_DSI /etc/init.d/globus-gridftp-server restart  
+# LD_LIBRARY_PATH=/opt/irods-externals/clang3.8-0/lib:/iRODS_DSI /usr/sbin/globus-gridftp-server
+
+# Run server 
+
+#export LD_LIBRARY_PATH=/opt/irods-externals/clang3.8-0/lib:/iRODS_DSI
+#sudo globus-gridftp-server -log-level info,warn,error -logfile /var/log/gridftp.log
+#sudo LD_LIBRARY_PATH=/opt/irods-externals/clang3.8-0/lib:/iRODS_DS:/iRODS_DSI/ globus-gridftp-server -log-level trace,info,warn,error -logfile /var/log/gridftp.log
+
+globus-gridftp-server -log-level trace,info,warn,error -logfile /var/log/gridftp.log&
+
+# create a 1 MB test file
+dd if=/dev/urandom of=file.dat bs=1000 count=1000
+
+# put the file into irods
+globus-url-copy file.dat gsiftp://localhost:2811/tempZone/home/rods/
+
+# get the file from irods
+globus-url-copy gsiftp://localhost:2811/tempZone/home/rods/file.dat file2.dat
+
+# diff the files
+diff file.dat file2.dat
+
+if [ $? -eq 0 ]; then
+   echo test passed
+else
+   echo test failed
+fi
+set +x
+
+
+
+
+
+
+
+

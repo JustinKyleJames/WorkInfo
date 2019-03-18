@@ -1,0 +1,62 @@
+# upgrade pip
+sudo -H pip install --upgrade pip
+
+# install virtualenv
+sudo -H pip install virtualenv
+
+####### all other pip within virtualenv  ############
+
+
+# install rq dashboard (not required)
+pip install rq-dashboard
+
+# run regis dashboard in background (in virtualenv in a different shell)
+rq-dashboard &
+
+
+# view the regis the dashboard
+http://<ip>:9181/normal
+
+
+# Launch workers
+#  high normal low - are queue names
+for i in {1..16}; do sleep .1; rq worker -v --burst -w irodsqueue.irodsworker.IrodsWorker high normal low & done
+
+# for parallel walk (from source)
+sudo apt-get install libopenmpi-dev
+sudo apt-get install python-dev
+sudo apt-get install python3-dev
+sudo apt-get install openmpi-bin
+pip install mpi4py
+pip install rq
+pip install python-irodsclient
+
+
+git clone https://github.com/irods/pwalk
+cd pwalk
+git checkout PY3
+cd ..
+git clone https://github.com/irods-contrib/irods_tools_ingest/
+cd irods_tools_ingest
+git checkout dev
+cd ..
+export PYTHONPATH=$PYTHONPATH:/home/jjames/pwalk:/home/jjames/irods_tools_ingest/irodsqueue
+
+# ingest example for register
+mpiexec -n 1 python ./enqueue_reg_jobs.py /projects/irods/ingest_test/5000_files/ /projects/irods/ingest_test /tempZone/home/rods/test2
+
+# launch workers (same as above)
+for i in {1..16}; do sleep .1; rq worker -v --burst -w irodsqueue.irodsworker.IrodsWorker high normal low & done
+
+
+# when done
+deactivate
+
+
+
+# code info for parallel walk
+# https://github.com/irods/pwalk/blob/PY3/lib/parallelwalk.py
+
+ProcessDir - enqueue a mkdir job
+ProcessFile - enqueue a reg job
+

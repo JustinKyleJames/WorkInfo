@@ -1,0 +1,167 @@
+<h1>High Availability, High Throughput iRODS Setup</h1>
+
+<p>This post provides an example of setting up iRODS in a high availability and high throughput configuration.  To achieve full redundancy, the following key
+iRODS components should be replicated:</p>
+
+<ol>
+<li>iCAT Database.</li>
+<li>iCAT Enabled Resource Server (or "ICAT server")</li>
+<li>iRODS Resource Servers</li>
+</ol>
+
+<p>Implementing  replication for RDBMS systems is standard practice and is outside of the scope of this blog post.</p>
+
+<h2>Replicating the iCAT Servers</h2>
+
+<p>A load balancer can be placed in front of the iCAT servers to provide redundancy.     </p>
+
+<p>We will set up 7 virtual servers.</p>
+
+<ul>
+<li>ICAT(1) - 192.168.1.151</li>
+<li>ICAT(2) - 192.168.1.152</li>
+<li>LoadBalancer (aka "ICAT) - 192.168.1.150</li>
+<li>DB1 - 192.168.1.153</li>
+<li>Resource1 - 192.168.1.155</li>
+<li>Resource2 - 192.168.1.156</li>
+<li>CLI1 - 192.168.1.154</li>
+</ul>
+
+<p>Give each server the IP addresses and hostnames listed above.  Note that the hostname for each of the two ICAT servers is simply "ICAT".  We will also
+configure /etc/hosts as you see in Figure 1.</p>
+
+<blockquote>
+  <p>Because iRODS uses hostnames to refer to individual components, the two iCAT servers must both use the same hostname internally (in our case "ICAT").  All connections
+initiated to the ICAT servers will go through the load balancer.  The load balancer will be known as "ICAT" externally.</p>
+</blockquote>
+
+<p>In our test setup we use HAProxy which is a software application that performs HTTP and TCP load balancing.  HAProxy can 
+be downloaded on Ubuntu 14.04 systems using the following commands:</p>
+
+<blockquote>
+  <p>echo deb http://archive.ubuntu.com/ubuntu trusty-backports main universe |  sudo tee /etc/apt/sources.list.d/backports.list <br />
+sudo apt-get update <br />
+sudo apt-get install haproxy -t trusty-backports  </p>
+</blockquote>
+
+<p>We will configure the load balancer to use TCP routing.  Incoming requests on port 1247 will be redirected in a round-robin fasion to one of the two ICAT servers.  </p>
+
+<blockquote>
+  <p>Port 1247 is the default port for iRODS communications.  Ports 20000 through 20199 are also used to transfer large files.  However, these are direct connections
+between the resource servers and the clients and do not go through the load balancer.</p>
+</blockquote>
+
+<p>The following configuration file can be used to configure HAProxy:</p>
+
+<blockquote>
+  <p>global <br />
+       daemon <br />
+       maxconn 256  </p>
+
+<p>defaults <br />
+       mode tcp <br />
+       timeout connect 5000ms <br />
+       timeout client 50000ms <br />
+       timeout server 50000ms  </p>
+
+<p>frontend irods-in <br />
+               bind *:1247 <br />
+               default_backend servers  </p>
+
+<p>backend servers <br />
+       option tcp-check <br />
+       tcp-check connect <br />
+        tcp-check send PING\n <br />
+       tcp-check expect string <code>&lt;MsgHeader_PI&gt;\n&lt;type&gt;RODS_VERSION&lt;/type&gt;</code> <br />
+      server ICAT1 192.168.1.151 check port 1247 <br />
+      server ICAT2 192.168.1.152 check port 1247  </p>
+</blockquote>
+
+<p>To determine if a particular iCAT server is up, any string can be sent (in the above case we send "PING") to port 1247 and iRODS will respond with
+text beginning with <em><code>&lt;MsgHeader_PI&gt;</code></em>.  This is used as a health check on the iRODS server.  This is sufficient to determine if an iCAT instance is up or down.
+More robust health checks are possible but are outside of the scope of this post.</p>
+
+<p>Assuming the configuration listed above is in haproxy.cfg which is in the current directory and HAProxy is in the PATH, it can be started with the following command:</p>
+
+<blockquote>
+  <p>haproxy -f haproxy.cfg</p>
+</blockquote>
+
+<h3>Installing iRODS</h3>
+
+<p>Standard iRODS installations procedures can be performed to install iRODS on the iCAT and resource servers as well as the CLI client.  A DB client should
+be installed on the iCAT servers.  For PostgreSQL, this can be performed with the following command:</p>
+
+<blockquote>
+  <p>sudo apt-get install postgresql-client-9.4</p>
+</blockquote>
+
+<p>After insalling and configuring PostgreSQL on DB1 (see section 5.1 of <a href="ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-manual-4.0.3.pdf">iRODS 4.0.3 Manual</a>), 
+test the connection from each iCAT server to the DB with the following:</p>
+
+<blockquote>
+  <p>psql -h 192.168.1.153 -U postgres</p>
+</blockquote>
+
+<p>Install iRODS on the iCAT servers.  Dureing installation use "192.168.1.153" or "ICAT" when prompted for the database server's hostname or IP address.
+Note:</p>
+
+<blockquote>
+  <p>The iCAT installation scripts set up the necessary tables on the iCAT database.  On the second installation the scripts will notice that the database tables
+have already been set up and will handle this condition gracefully.</p>
+</blockquote>
+
+<p><strong>An important note about using the iCAT servers are resource servers</strong>  </p>
+
+<p>In a normal setup, the iCAT servers may play a dual role as a resource server.  However, this will cause problems in the multiple iCAT server configuration.  Therefore, 
+data storage must be stored on separate resource servers.</p>
+
+<h2>Setting Up the Resource Servers and Data Replication</h2>
+
+<p>Install iRODS on the two resource servers as described in section 5.2 of the <a href="ftp://ftp.renci.org/pub/irods/releases/4.0.3/irods-manual-4.0.3.pdf">iRODS 4.0.3 Manual</a>.  When prompted
+for the address of the iCAT server, enter "ICAT" which will resolve to the load balancer.</p>
+
+<p>After the resource servers are set up, install the iRODS CLI client on CLI.  When prompted for the address of the iCAT server, enter "ICAT" which will again be resolved to 
+the load balancer.</p>
+
+<p>After doing an "iinit" on the CLI server to setup up the client configuration, perform the following steps to create redundant resources.</p>
+
+<blockquote>
+  <p>mkresc BaseResource replication <br />
+iadmin mkresc Resource1 'unixfilesystem' Resource1:/var/lib/irods/Vault <br />
+iadmin mkresc Resource2 'unixfilesystem' Resource1:/var/lib/irods/Vault <br />
+addchildtoresc BaseResource Resource1 <br />
+addchildtoresc BaseResource Resource2  </p>
+</blockquote>
+
+<p>The resource tree should appear as follows:</p>
+
+<blockquote>
+  <p>$ ilsresc --tree <br />
+<code>BaseResource:replication</code> <br />
+<code>|____Resource1</code> <br />
+<code>|____Resource2</code> <br />
+<code>demoResc</code>  </p>
+</blockquote>
+
+<p>On the CLI server, update ~/.irods/.irodsEnv to use "BaseResource" as the default resource.</p>
+
+<blockquote>
+  <p>irodsHost HighAvailICAT <br />
+irodsPort 1247 <br />
+irodsUserName rods <br />
+irodsZone tempZone <br />
+<strong>irodsDefResource BaseResource</strong>  </p>
+</blockquote>
+
+<h2>Testing the Setup</h2>
+
+<p>Perform the following steps to test this setup.</p>
+
+<ol>
+<li>From the CLI server, put (iput) a large file into iRODS.  Verify that the file has been stored on both resource servers.</li>
+<li>Get (iget) the file from iRODS.  Verify that the file retrieved from iRODS has the same contents as the one put into iRODS.</li>
+<li>Bring one resource server down and perform steps #1 and #2.</li>
+<li>Bring down one iCAT server and verify that iCommands can still be executed successfully.  (This may initially fail if the balancer has not yet performed a health 
+check but should succeed after the first failure.)</li>
+</ol>

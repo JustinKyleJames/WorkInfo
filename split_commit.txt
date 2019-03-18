@@ -1,0 +1,5 @@
+git checkout <commit you want to use>
+git checkout -b <new branch name>
+git reset HEAD^
+git add -p
+git commit -m "my amazing piece of work"

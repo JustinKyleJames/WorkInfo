@@ -1,0 +1,237 @@
+S3 plugin configuration
+
+.passwd-s3fs
+
+s3fs mybucket /path/to/mountpoint -o passwd_file=${HOME}/.passwd-s3fs -o url=http://url.to.s3/ -o use_path_request_style
+s3fs <bucket> <path to mount> <password file> <s3 url> -o use_path_request_style
+
+
+context=<bucket>;<mount>;<pwfile>;url;
+
+
+            irods::RESOURCE_OP_OPEN,
+            irods::RESOURCE_OP_READ,
+            irods::RESOURCE_OP_WRITE,
+            irods::RESOURCE_OP_UNLINK,
+            irods::RESOURCE_OP_STAT,
+            irods::RESOURCE_OP_MKDIR,
+            irods::RESOURCE_OP_OPENDIR,
+            irods::RESOURCE_OP_READDIR,
+            irods::RESOURCE_OP_RENAME,
+            irods::RESOURCE_OP_FREESPACE,
+            irods::RESOURCE_OP_LSEEK,
+            irods::RESOURCE_OP_CLOSEDIR,
+            irods::RESOURCE_OP_STAGETOCACHE,
+            irods::RESOURCE_OP_SYNCTOARCH,
+            irods::RESOURCE_OP_REGISTERED,
+            irods::RESOURCE_OP_UNREGISTERED,
+            irods::RESOURCE_OP_MODIFIED,
+            irods::RESOURCE_OP_RMDIR,
+            irods::RESOURCE_OP_RESOLVE_RESC_HIER,
+
+
+
+
+
+class s3_resource : public irods::resource {
+public:
+    s3_resource( const std::string& _inst_name,
+                 const std::string& _context ) :
+        irods::resource( _inst_name, _context ) {
+
+        // =-=-=-=-=-=-=-
+        // parse context string into property pairs assuming a ; as a separator
+        std::vector< std::string > props;
+        irods::kvp_map_t kvp;
+        irods::parse_kvp_string(_context, kvp);
+
+        // =-=-=-=-=-=-=-
+        // copy the properties from the context to the prop map
+        irods::kvp_map_t::iterator itr = kvp.begin();
+        for( ; itr != kvp.end(); ++itr ) {
+            properties_.set< std::string >(
+                itr->first,
+                itr->second );
+        } // for itr
+
+        // Add start and stop operations
+        set_start_operation( s3StartOperation );
+        set_stop_operation( s3StopOperation );
+    } // ctor
+
+    irods::error need_post_disconnect_maintenance_operation( bool& _b ) {
+        _b = false;
+        return SUCCESS();
+    }
+
+
+    // =-=-=-=-=-=-=-
+    // 3b. pass along a functor for maintenance work after
+    //     the client disconnects, uncomment the first two lines for effect.
+    irods::error post_disconnect_maintenance_operation( irods::pdmo_type& _op  ) {
+        return SUCCESS();
+    }
+
+}; // class s3_resource
+
+
+
+extern "C"
+irods::resource* plugin_factory( const std::string& _inst_name, const std::string& _context ) {
+    s3_resource* resc = new s3_resource(_inst_name, _context);
+
+    resc->add_operation(
+        irods::RESOURCE_OP_CREATE,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileCreatePlugin ) );
+
+    resc->add_operation(
+        irods::RESOURCE_OP_OPEN,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileOpenPlugin ) );
+
+    resc->add_operation<void*,int>(
+        irods::RESOURCE_OP_READ,
+        std::function<irods::error(irods::plugin_context&,void*,int)>(
+            s3FileReadPlugin ) );
+
+    resc->add_operation<void*,int>(
+        irods::RESOURCE_OP_WRITE,
+        std::function<irods::error(irods::plugin_context&,void*,int)>(
+            s3FileWritePlugin ) );
+
+    resc->add_operation(
+        irods::RESOURCE_OP_CLOSE,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileClosePlugin ) );
+
+    resc->add_operation(
+        irods::RESOURCE_OP_UNLINK,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileUnlinkPlugin ) );
+
+    resc->add_operation<struct stat*>(
+        irods::RESOURCE_OP_STAT,
+        std::function<irods::error(irods::plugin_context&, struct stat*)>(
+            s3FileStatPlugin ) );
+    
+
+
+    resc->add_operation(
+        irods::RESOURCE_OP_MKDIR,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileMkdirPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_OPENDIR,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileOpendirPlugin ) ); 
+
+    resc->add_operation<struct rodsDirent**>(
+        irods::RESOURCE_OP_READDIR,
+        std::function<irods::error(irods::plugin_context&,struct rodsDirent**)>(
+            s3FileReaddirPlugin ) ); 
+
+    resc->add_operation<const char*>(
+        irods::RESOURCE_OP_RENAME,
+        std::function<irods::error(irods::plugin_context&, const char*)>(
+            s3FileRenamePlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_FREESPACE,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileGetFsFreeSpacePlugin ) ); 
+
+    resc->add_operation<long long, int>(
+        irods::RESOURCE_OP_LSEEK,
+        std::function<irods::error(irods::plugin_context&, long long, int)>(
+            s3FileLseekPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_RMDIR,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileRmdirPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_CLOSEDIR,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileClosedirPlugin ) ); 
+
+    resc->add_operation<const char*>(
+        irods::RESOURCE_OP_STAGETOCACHE,
+        std::function<irods::error(irods::plugin_context&, const char*)>(
+            s3StageToCachePlugin ) ); 
+
+    resc->add_operation<const char*>(
+        irods::RESOURCE_OP_SYNCTOARCH,
+        std::function<irods::error(irods::plugin_context&, const char*)>(
+            s3SyncToArchPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_REGISTERED,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3RegisteredPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_UNREGISTERED,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3UnregisteredPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_MODIFIED,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3ModifiedPlugin ) ); 
+
+    resc->add_operation<const std::string*, const std::string*, irods::hierarchy_parser*, float*>(
+        irods::RESOURCE_OP_RESOLVE_RESC_HIER,
+        std::function<irods::error(irods::plugin_context&,const std::string*, const std::string*, irods::hierarchy_parser*, float*)>(
+            s3RedirectPlugin ) ); 
+
+    resc->add_operation(
+        irods::RESOURCE_OP_REBALANCE,
+        std::function<irods::error(irods::plugin_context&)>(
+            s3FileRebalance ) ); 
+
+    // set some properties necessary for backporting to iRODS legacy code
+    resc->set_property< int >( irods::RESOURCE_CHECK_PATH_PERM, DO_CHK_PATH_PERM );
+    resc->set_property< int >( irods::RESOURCE_CREATE_PATH,     CREATE_PATH );
+    resc->set_property< int >( "category",        FILE_CAT );
+
+    return static_cast<irods::resource*>( resc );
+
+} // plugin_factory
+
+
+
+
+// fuse interface functions
+static int s3fs_getattr(const char* path, struct stat* stbuf);
+static int s3fs_readlink(const char* path, char* buf, size_t size);
+static int s3fs_mknod(const char* path, mode_t mode, dev_t rdev);
+static int s3fs_mkdir(const char* path, mode_t mode);
+static int s3fs_unlink(const char* path);
+static int s3fs_rmdir(const char* path);
+static int s3fs_symlink(const char* from, const char* to); 
+static int s3fs_rename(const char* from, const char* to); 
+static int s3fs_link(const char* from, const char* to); 
+static int s3fs_chmod(const char* path, mode_t mode);
+static int s3fs_chmod_nocopy(const char* path, mode_t mode);
+static int s3fs_chown(const char* path, uid_t uid, gid_t gid);
+static int s3fs_chown_nocopy(const char* path, uid_t uid, gid_t gid);
+static int s3fs_utimens(const char* path, const struct timespec ts[2]);
+static int s3fs_utimens_nocopy(const char* path, const struct timespec ts[2]);
+static int s3fs_truncate(const char* path, off_t size);
+static int s3fs_create(const char* path, mode_t mode, struct fuse_file_info* fi); 
+static int s3fs_open(const char* path, struct fuse_file_info* fi); 
+static int s3fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi); 
+static int s3fs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi); 
+static int s3fs_statfs(const char* path, struct statvfs* stbuf);
+static int s3fs_flush(const char* path, struct fuse_file_info* fi); 
+static int s3fs_fsync(const char* path, int datasync, struct fuse_file_info* fi); 
+static int s3fs_release(const char* path, struct fuse_file_info* fi); 
+static int s3fs_opendir(const char* path, struct fuse_file_info* fi); 
+static int s3fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi); 
+static int s3fs_access(const char* path, int mask);
+static void* s3fs_init(struct fuse_conn_info* conn);
+static void s3fs_destroy(void*);
+

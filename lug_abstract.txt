@@ -1,0 +1,22 @@
+ABSTRACT
+
+
+High Performance Computing (HPC) today requires access to very large collections of data.  Lustre meets the needs of scalability and high performance for today's HPC.  However, many organizations now find that they need a data management system to catalog and organize their petabytes of data.  
+
+The Integrated Rule-Oriented Data System (iRODS) provides the full suite of data management tools needed for existing and future volumes of data.  User defined metadata allows for easy discovery of data that goes far beyond normal file system metadata.  A rule engine allows administrators to define policies on data such as access policies and the automated discovery of metadata.  The rules and policies can change as necessary as the business needs and requirements change.  Finally a unified namespace allows users to access data without having to know the details of how the data is stored and replicated.  
+
+While other tools, such as the Robinhood Policy Engine, aggregate system metadata, iRODS uniquely provides a rich set of user specified metadata and a fully expressive rule engine which allow rules and policies to be written in your language of choice. 
+ 
+The Lustre iRODS Connector has been created to help bridge the gap between the Lustre parallel file system and iRODS.  The main goals of this connector were:
+
+1.  Perform near real time updates to iRODS when changes are made to the Lustre filesystem.
+2.  Perform all iRODS updates out-of-band so that iRODS is never in the critical path of data creation or retrieval. 
+3.  All updates are simple registrations which means that no user data ever needs to be transferred during the process.
+3.  Horizontally scalable with aggregated batch updates.
+4.  A plugin based setup that can be easily integrated into existing Lustre and iRODS implementations.
+
+The Lustre iRODS Connector consists of a changelog reader that reads Lustre changelog events and aggregates them to be processed.  Multiple iRODS updater threads send batches of updates to an iRODS plugin which directly manipulates the iRODS catalog.  
+
+In concert with the Lustre iRODS Connector, several additional improvements are being made to iRODS so that it can handle the desired throughput.  iRODS now supports CockroachDB to provide a horizontally scalable catalog.  iRODS also has an efficient parallel rsync-like tool which allows existing data sets to be migrated into iRODS.
+
+ 

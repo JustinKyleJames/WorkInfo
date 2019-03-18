@@ -1,0 +1,21 @@
+Enable Remote Connection to Postgres DB
+---------------------------------------
+
+Add the following to /etc/postgresql/9.3/main/pg_hba.conf:
+host    all             all             192.168.1.0/24          md5
+
+Set listen_addresses to '*' in /etc/postgresql/9.3/main/postgresql.conf:
+listen_addresses = '*'
+
+
+Change Hostname
+---------------
+Update /etc/hostname
+
+Change IP Address
+-----------------
+On Ubuntu use "Network Connections"
+
+
+
+

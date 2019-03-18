@@ -1,0 +1,13 @@
+LD_LIBRARY_PATH            - runtime environment variable to search for library files
+-l<l1>                     - at link time load library libl1
+-L                         - at link time set the library path
+
+-Wl,-rpath,$(DEFAULT_LIB_INSTALL_PATH)        - set the runtime path to find the libarary
+nm -gC <library>                              - list symbols in library
+
+static vs dynamic linking
+--------------------------
+g++ file.cpp -o out -Wl,-Bstatic -lsomestaticlib -Wl,-Bdynamic
+
+  - links somestaticlib as static, others are dynamic
+

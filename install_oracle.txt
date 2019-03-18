@@ -1,0 +1,35 @@
+# all as root
+
+wget http://people.renci.org/~jasonc/irods/oci.tar
+mkdir ~/oci
+tar xvf oci.tar -C ~/oci
+yum install unixODBC
+cd ~/oci
+rpm -i --nodeps *.rpm
+ln -s /usr/lib64/libodbcinst.so.2 /usr/lib64/libodbcinst.so.1
+
+
+echo 'export LD_LIBRARY_PATH=/usr/lib/oracle/11.2/client64/lib:$LD_LIBRARY_PATH
+export ORACLE_HOME=/usr/lib/oracle/11.2/client64
+export PATH=$ORACLE_HOME/bin:$PATH' >> /etc/profile.d/oracle.sh
+
+echo 'ORACLE_HOME=/usr/lib/oracle/11.2/client64' >> /etc/environment
+
+mkdir -p /usr/lib/oracle/11.2/client64/network/admin
+
+echo 'ICAT =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = default-cloud-hostname-oracle.example.org)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = ICAT.example.org)
+    )
+  )
+' >> /usr/lib/oracle/11.2/client64/network/admin/tnsnames.ora
+
+
+
+
+
+
+

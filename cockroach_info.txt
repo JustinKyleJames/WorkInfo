@@ -1,0 +1,33 @@
+# start server insecure
+cockroach start --insecure --host=localhost
+
+# start server secure
+cockroach start --certs-dir=certs --host=localhost --http-host=localhost
+
+# stop server (node)
+cockroach quit --certs-dir=certs
+
+
+# initialize DB
+
+cockroach sql --insecure
+
+> create user irods;
+> alter user irods with password 'testpassword';
+> create database "ICAT";
+> grant all on database "ICAT" to irods;
+
+# set user password
+cockroach user set irods --certs-dir=/root/certs --password
+
+# log in insecure
+cockroach sql --insecure -d ICAT -u irods
+
+# log in secure as root
+cockroach sql --certs-dir=/root/certs
+
+
+# drop database 
+drop database "ICAT" cascade
+
+

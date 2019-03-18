@@ -1,0 +1,149 @@
+-------------------
+Install QPID Proton
+-------------------
+
+git clone https://github.com/irods/irods_rule_engine_plugin_audit_amqp
+cd irods_rule_engine_plugin_audit_amqp
+mkdir build
+cd build
+cmake ..
+make -j10 package
+sudo dpkg -i irods-rule-engine-plugin-audit-amqp-4.2.0-ubuntu14-x86_64.deb
+
+-------------------------
+Update server_config.json
+-------------------------
+
+ {
+ "instance_name": "re-audit-amqp-instance",
+ "plugin_name": "irods_rule_engine_plugin-audit_amqp",
+ "plugin_specific_configuration" : {
+   "pep_regex_to_match" : "audit_.*",
+   "amqp_topic" : "topic://audit_messages",
+   "amqp_location" : "localhost:5672",
+   "amqp_options" : ""
+   }
+ }
+
+
+
+
+
+
+----------------------
+Install Elastic Search
+----------------------
+
+$ echo "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main" | sudo tee -a /etc/apt/sources.list.d/elasticsearch-2.x.list
+$ sudo apt-get update
+$ sudo apt-get -y install elasticsearch
+$ sudo service elasticsearch restart
+
+
+------------------------------
+Install and Configure Logstash
+------------------------------
+
+wget -qO - https://packages.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+echo "deb http://packages.elastic.co/logstash/2.1/debian stable main" | sudo tee -a /etc/apt/sources.list.d/logstash-2.x.list
+sudo apt-get update
+sudo apt-get install logstash
+cd /opt/logstash/bin/
+
+# install logstash-input-stomp plugin
+sudo ./plugin install logstash-input-stomp
+
+#Configure Logstash
+
+/opt/logstash/bin/audit.conf
+----------------------------
+
+input {
+    stomp {
+        host        => "localhost"
+        destination => "/queue/audit_messages"
+        codec       => plain {
+                           charset => "ISO-8859-1"
+                       }
+    }
+
+}
+
+filter {
+
+    ruby {
+        code => " replace_str = '{' + 34.chr + '0__time_stamp'
+                  event['message'].sub!(/.*0__time_stamp/, replace_str)
+                "
+    }
+
+    json {
+        source       => "message"
+        remove_field => ["message"]
+    }
+
+    date {
+        match => [ "0__time_stamp", "UNIX_MS" ]
+    }
+}
+
+output {
+    elasticsearch {
+        hosts => ["localhost:9200"]
+        index => "audit_log"
+    }
+    stdout {
+        codec => rubydebug {
+        }
+    }
+}
+
+start logstash
+--------------
+
+./logstash -f audit.conf
+
+
+
+-------------
+Test Pipeline
+-------------
+
+Audit Plugin -> ActiveMQ -> Logstash -> ElasticSearch
+
+
+
+$ curl -XGET 'localhost:9200/audit_log/_search' -d '{
+    "fields": [ "3__rule_name", "2__pid" ],
+   "size": "100",
+   "query": {
+      "term": { "3__rule_name": "audit_pep_database_open_pre"}
+   }
+}'
+
+or 
+
+$ curl 'localhost:9200/audit_log/_search?q=3__rulename=audit_pep_database_gen_query_pre'
+
+
+--------------
+Install Kibana
+--------------
+
+$ echo "deb http://packages.elastic.co/kibana/4.4/debian stable main" | sudo tee -a /etc/apt/sources.list.d/kibana-4.4.x.list
+$ sudo apt-get update
+$ sudo apt-get -y install kibana
+$ sudo service kibana start
+
+Run Kibana Web Portal:  http://localhost:6501
+
+Load up irods_dashboard
+-----------------------
+
+wget irods_dashboard.json
+Click Import and select irods_dashboard.json.
+
+<< Show Image >>
+
+Have fun with Kibana!
+

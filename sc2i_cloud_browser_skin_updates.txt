@@ -1,0 +1,25 @@
+css/main.css
+------------
+
+.main_logo{
+    background: url("../images/sc2i_logo.png");/* For best results plese use an image with 36px of height */
+    display: block;
+    height: 36px;
+    width:143px;
+    background-repeat: no-repeat;
+}
+/*.main_logo{
+    background: url("../images/beta_test_logo.png");
+    display: block;
+    height: 36px;
+    width:143px;
+}*/
+
+
+replace all #00A9C2 with #6FA1AD
+
+
+images/
+--------------------
+
+put sc2i_logo.png

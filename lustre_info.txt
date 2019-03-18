@@ -1,0 +1,53 @@
+# build zeromq 4 from source
+
+git clone https://github.com/zeromq/zeromq4-x
+cd libzmq
+./autogen.sh && ./configure && make
+sudo make install
+sudo ldconfig
+
+# build and install lcapd
+git clone https://github.com/cea-hpc/lcap
+cd lcap
+./autogen.sh
+./configure --with-zeromq=/opt/irods-externals/zeromq4-14.1.3-0
+make
+make rpm
+
+# ls -l /opt/irods-externals/zeromq4-14.1.3-0/include
+total 24
+-rw-r--r-- 1 root root 16613 Jan 20 23:52 zmq.h
+-rw-r--r-- 1 root root   844 Jan 20 23:52 zmq_utils.h
+
+[root@zfs1 zeromq4-x]# ls -l /opt/irods-externals/zeromq4-14.1.3-0/lib
+total 1940
+-rwxr-xr-x 1 root root  689923 Jan 20 23:52 libzmq.so
+-rw-r--r-- 1 root root 1288128 Jan 20 23:52 libzmq-static.a
+
+# mount lustre
+mount -o user_fid2path -t lustre 192.168.56.31@tcp1:/lustre01 /lustreResc/lustre01
+
+# start daemon
+export LD_LIBRARY_PATH=/opt/irods-externals/zeromq4-14.1.3-0/lib/
+/lcap/src/lcapd/lcapd -c /etc/lcapd.conf&
+
+# run irods connector
+export LD_LIBRARY_PATH=/opt/irods-externals/zeromq4-14.1.3-0/lib/
+/root/irods_tools_lustre/server/src
+make
+./connector
+
+# update changelog mask (on MDS)
+lctl set_param mdd.lustre01-MDT0000.changelog_mask="MARK CREAT MKDIR HLINK SLINK MKNOD UNLNK RMDIR RENME RNMTO OPEN LYOUT TRUNC SATTR XATTR HSM MTIME CTIME CLOSE"
+
+# display changelog mask (on MDS)
+lctl get_param  mdd.lustre01-MDT0000.changelog_mask
+
+# /etc/passwd (on MDS)
+irods:x:498:498::/:/sbin/nologin
+
+
+
+# make a directory and have it go to an MDS server other than the one with index 0
+lfs mkdir -i 3 OST0003dir
+

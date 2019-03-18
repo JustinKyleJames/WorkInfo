@@ -1,0 +1,49 @@
+iadmin mkresc wosResc compound
+iadmin mkresc wosCacheResc unixfilesystem justin:/var/lib/irods/wosCacheResc
+iadmin mkresc wosArchiveResc wos justin:/dne 'wos_host=http://ddn-wos6000.irods.renci.org;wos_policy=default'
+iadmin addchildtoresc wosResc wosCacheResc cache
+iadmin addchildtoresc wosResc wosArchiveResc archive
+
+
+### Get Node Info ###
+
+curl -s  "http://admin:<pw>@ddn-wos6000.irods.renci.org:8088/mgmt/node_info"
+
+
+### Get object count only ###
+
+curl -s  "http://admin:<pw>@ddn-wos6000.irods.renci.org:8088/mgmt/node_info"  | jq ".[] | .objectCount"
+
+
+### GET ###
+
+curl -v "http://ddn-wos6000.irods.renci.org/objects/lDkFvoTfBiLw3eCt3pF9FVT9NOIVJV1O2DK2L28F"
+
+or:
+
+curl -v -H "x-ddn-oid: lDkFvoTfBiLw3eCt3pF9FVT9NOIVJV1O2DK2L28F" "http://ddn-wos6000.irods.renci.org/cmd/get"
+
+
+
+### RESERVE OID ###
+
+curl -v -X POST -H "x-ddn-policy: default" -H "Content-Length: 0" "http://ddn-wos6000.irods.renci.org/cmd/reserve"
+
+Notes:
+
+* You will get an x-ddn-oid header with the oid.
+* The Content-Length is listed as required but it works without it.  
+
+### POST to a RESERVED OID ###
+
+curl -v -X POST -H "x-ddn-oid: hAgB8kibCmY8GaBdYEHIEBubcCzv_SFSfwLIM-uF" -H "Content-Length: 5" -d @test1.txt "http://ddn-wos6000.irods.renci.org/cmd/putoid"
+
+### POST a zero length file with metadata ###
+
+curl -v -X POST -H "x-ddn-oid: sDtML4RWBrvg1XCiX5HXqdzoyOXn8RIfegRhHbJA" -H "Content-Length: 0" -H "x-ddn-meta: \"key\":\"val\"" -d @zerofile "http://ddn-wos6000.irods.renci.org/cmd/putoid"
+
+
+### DELETE ###
+
+curl -v -X POST -H "x-ddn-oid: hAgB8kibCmY8GaBdYEHIEBubcCzv_SFSfwLIM-uF" -H "Content-Length: 0" "http://ddn-wos6000.irods.renci.org/cmd/delete"
+
