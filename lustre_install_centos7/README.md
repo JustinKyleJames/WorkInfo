@@ -30,6 +30,7 @@ systemctl disable firewalld
 systemctl stop firewalld
 ## Disable SELinux
 sed -i '/^SELINUX=/c\SELINUX=disabled' /etc/sysconfig/selinux
+sed -i '/^SELINUX=/c\SELINUX=disabled' /etc/selinux/config
 ```
 
 6. Stop the system and clone it three times as MDS, OSS, and client.
