@@ -14,7 +14,7 @@ https://github.com/lrahmani/lustre-on-virtualbox
 ## dependencies from http://lustre.ornl.gov/lustre101-courses/content/C1/L3/LustreBasicInstall.pdf, page 10
 yum -y install perl libgssglue net-snmp libyaml sg3_utils openmpi lsof rsync
 ## useful tools
-yum -y install wget net-tools telnet
+yum -y install wget net-tools telnet vim net-tools
 ```
 
 5. Configure the system:
