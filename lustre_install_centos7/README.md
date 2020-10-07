@@ -8,7 +8,7 @@ https://github.com/lrahmani/lustre-on-virtualbox
 1. Boot the vm with CentOS-7-x86_64-Minimal-1708.iso as a live CD
 2. Configure adapter 1 as Bridged Adapter
 3. Configure adapter 2 as NAT.  (Enable port forwarding of port 988 guest <-> host.
-4. Set ONBOOT=yes in /etc/sysconfig/network-scripts/ifcfg-enp0s8.
+4. Set ONBOOT=yes in /etc/sysconfig/network-scripts/ifcfg-enp0s3 and ifcfg-enp0s8.
 5. Install the following packages.
 
 ```
